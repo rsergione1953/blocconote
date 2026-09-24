@@ -416,5 +416,4 @@ def main(page: ft.Page):
 
 
 if __name__ == "__main__":
-    assets_dir_path = os.path.join(os.path.dirname(__file__), "assets")
-    ft.app(target=main, assets_dir=assets_dir_path)
+    ft.app(target=main)
