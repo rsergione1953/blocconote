@@ -2,7 +2,8 @@ import os
 import sqlite3
 import sys
 import threading
-from datetime import datetime
+import urllib.parse
+from datetime import datetime, timedelta
 import flet as ft
 
 # --- IMPORT SICURO SPEECH_REGONITION (EVITA SCHERMO NERO SU MOBILE) ---
@@ -28,7 +29,8 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             anteprima TEXT,
             contenuto TEXT,
-            data TEXT
+            data TEXT,
+            data_scadenza TEXT
         )
     """
     )
@@ -40,13 +42,23 @@ def carica_note_db():
     """Legge tutte le note ordinate dalla più recente."""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    cursor.execute("SELECT id, anteprima, contenuto, data FROM note ORDER BY id DESC")
+    cursor.execute(
+        "SELECT id, anteprima, contenuto, data, data_scadenza FROM note ORDER BY id DESC"
+    )
     rows = cursor.fetchall()
     conn.close()
 
     note = []
     for r in rows:
-        note.append({"id": r[0], "anteprima": r[1], "contenuto": r[2], "data": r[3]})
+        note.append(
+            {
+                "id": r[0],
+                "anteprima": r[1],
+                "contenuto": r[2],
+                "data": r[3],
+                "data_scadenza": r[4] if len(r) > 4 else None,
+            }
+        )
     return note
 
 
@@ -183,6 +195,7 @@ def main(page: ft.Page):
             "anteprima": anteprima,
             "contenuto": contenuto_iniziale,
             "data": ora_attuale,
+            "data_scadenza": None,
         }
         note_list.insert(0, nuova_nota)
         apri_dettaglio(0)
@@ -202,6 +215,7 @@ def main(page: ft.Page):
                     "anteprima": anteprima,
                     "contenuto": testo_completo,
                     "data": ora_attuale,
+                    "data_scadenza": None,
                 },
             )
             status_label.value = "💾 Registrato e salvato su DB!"
@@ -233,6 +247,124 @@ def main(page: ft.Page):
 
             status_label.value = "🗑️ Nota eliminata con successo!"
             mostra_home()
+
+    # --- AZIONI BARRA STRUMENTI ---
+    def attiva_modifica_nota(e=None):
+        if txt_contenuto.value:
+            ora_modifica = datetime.now().strftime("%d/%m/%Y %H:%M")
+            testo_attuale = txt_contenuto.value.rstrip()
+            txt_contenuto.value = (
+                f"{testo_attuale}\n--- Modificato il {ora_modifica} ---\n"
+            )
+            txt_contenuto.focus()
+            status_label.value = "✏️ Pronto per la modifica."
+            page.update()
+
+    def inoltra_email_nota(e=None):
+        if txt_contenuto.value and txt_contenuto.value.strip():
+            oggetto = urllib.parse.quote("Nota SPsoft")
+            corpo = urllib.parse.quote(txt_contenuto.value)
+            mailto_url = f"mailto:?subject={oggetto}&body={corpo}"
+            page.launch_url(mailto_url)
+            status_label.value = "✉️ Apertura client email in corso..."
+            page.update()
+        else:
+            status_label.value = "⚠️ Nessun testo da inviare via email."
+            page.update()
+
+    def stampa_nota_corrente(e=None):
+        if txt_contenuto.value and txt_contenuto.value.strip():
+            # Genera la pagina HTML formattata per la stampa
+            html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Stampa Nota - SPsoft</title>
+    <style>
+        body {{ font-family: 'Courier New', monospace; padding: 25px; color: #2B2B2B; background-color: #ffffff; }}
+        .intestazione {{ border-bottom: 2px solid #8B5A2B; padding-bottom: 10px; margin-bottom: 20px; }}
+        .titolo {{ font-size: 20px; font-weight: bold; color: #5C3A21; font-family: Arial, sans-serif; }}
+        .corpo {{ font-size: 16px; line-height: 1.5; white-space: pre-wrap; background-color: #FDF6E3; padding: 15px; border: 1px solid #D3C193; border-radius: 5px; }}
+        .btn-stampa {{ margin-top: 15px; padding: 10px 20px; font-size: 15px; background-color: #8B5A2B; color: white; border: none; border-radius: 5px; cursor: pointer; }}
+        @media print {{ .no-print {{ display: none; }} body {{ padding: 0; }} .corpo {{ border: none; background: transparent; }} }}
+    </style>
+</head>
+<body>
+    <div class="intestazione">
+        <div class="titolo">Appunti - SPsoft</div>
+        <button class="btn-stampa no-print" onclick="window.print()">🖨️ Stampa / Salva in PDF</button>
+    </div>
+    <div class="corpo">{txt_contenuto.value}</div>
+</body>
+</html>"""
+
+            # Salva la pagina temporanea
+            file_path = os.path.abspath("stampa_nota.html")
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(html_content)
+
+            # Apre la pagina nel browser di sistema
+            import webbrowser
+
+            webbrowser.open(f"file://{file_path}")
+            status_label.value = "🖨️ Pagina di stampa aperta nel browser!"
+            page.update()
+        else:
+            status_label.value = "⚠️ Nessun testo da stampare."
+            page.update()
+
+    def imposta_scadenza_appuntamento(e=None):
+        if not txt_contenuto.value or not txt_contenuto.value.strip():
+            status_label.value = "⚠️ Nessun testo per impostare un appuntamento."
+            page.update()
+            return
+
+        def salva_e_apri_calendario(data_scelta, ora_scelta):
+            nonlocal nota_selezionata_idx
+            try:
+                dt_evento = datetime.combine(data_scelta, ora_scelta)
+                data_scadenza_str = dt_evento.strftime("%d/%m/%Y %H:%M")
+
+                if nota_selezionata_idx is not None:
+                    nota = note_list[nota_selezionata_idx]
+                    nota["data_scadenza"] = data_scadenza_str
+                    conn = sqlite3.connect(DB_NAME)
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "UPDATE note SET data_scadenza = ? WHERE id = ?",
+                        (data_scadenza_str, nota["id"]),
+                    )
+                    conn.commit()
+                    conn.close()
+
+                dt_start = dt_evento.strftime("%Y%m%dT%H%M00")
+                dt_end = (dt_evento + timedelta(hours=1)).strftime("%Y%m%dT%H%M00")
+                titolo = urllib.parse.quote(txt_contenuto.value[:40].replace("\n", " "))
+                dettagli = urllib.parse.quote(f"Appunti SPsoft:\n{txt_contenuto.value}")
+
+                cal_url = f"https://www.google.com/calendar/render?action=TEMPLATE&text={titolo}&details={dettagli}&dates={dt_start}/{dt_end}"
+
+                page.launch_url(cal_url)
+                status_label.value = (
+                    f"⏰ Appuntamento impostato per il {data_scadenza_str}"
+                )
+                page.update()
+            except Exception:
+                status_label.value = "⚠️ Errore durante l'impostazione dell'ora."
+                page.update()
+
+        def orario_selezionato(e_time):
+            if time_picker.value and date_picker.value:
+                salva_e_apri_calendario(date_picker.value, time_picker.value)
+
+        def data_selezionata(e_date):
+            if date_picker.value:
+                page.open(time_picker)
+
+        date_picker = ft.DatePicker(on_change=data_selezionata)
+        time_picker = ft.TimePicker(on_change=orario_selezionato)
+
+        page.open(date_picker)
 
     def ascolta_vocale(e):
         if not HAS_SPEECH:
@@ -297,6 +429,11 @@ def main(page: ft.Page):
                             max_lines=2,
                             overflow=ft.TextOverflow.ELLIPSIS,
                         ),
+                        subtitle=ft.Text(
+                            f"Scadenza: {n['data_scadenza']}", size=11, italic=True
+                        )
+                        if n.get("data_scadenza")
+                        else None,
                         on_click=make_click(idx),
                     ),
                     bgcolor=CARD_BG,
@@ -373,14 +510,18 @@ def main(page: ft.Page):
             crea_btn_azione(
                 "Salva", "salva.ico", on_click_fn=salva_modifiche_dettaglio
             ),
-            crea_btn_azione("Modifica", "modifica.ico"),
+            crea_btn_azione(
+                "Modifica", "modifica.ico", on_click_fn=attiva_modifica_nota
+            ),
             crea_btn_azione("Cerca", "cerca.ico"),
             crea_btn_azione(
                 "Cancella", "cancella.ico", on_click_fn=elimina_nota_corrente
             ),
-            crea_btn_azione("Stampa", "stampa.ico"),
-            crea_btn_azione("Inoltra", "inoltra.ico"),
-            crea_btn_azione("Imposta Ora", "imposta.ico"),
+            crea_btn_azione("Stampa", "stampa.ico", on_click_fn=stampa_nota_corrente),
+            crea_btn_azione("Inoltra", "inoltra.ico", on_click_fn=inoltra_email_nota),
+            crea_btn_azione(
+                "Imposta Ora", "imposta.ico", on_click_fn=imposta_scadenza_appuntamento
+            ),
         ],
         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
         scroll=ft.ScrollMode.AUTO,

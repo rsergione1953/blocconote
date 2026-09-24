@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Stampa Nota - SPsoft</title>
+    <style>
+        body { font-family: 'Courier New', monospace; padding: 25px; color: #2B2B2B; background-color: #ffffff; }
+        .intestazione { border-bottom: 2px solid #8B5A2B; padding-bottom: 10px; margin-bottom: 20px; }
+        .titolo { font-size: 20px; font-weight: bold; color: #5C3A21; font-family: Arial, sans-serif; }
+        .corpo { font-size: 16px; line-height: 1.5; white-space: pre-wrap; background-color: #FDF6E3; padding: 15px; border: 1px solid #D3C193; border-radius: 5px; }
+        .btn-stampa { margin-top: 15px; padding: 10px 20px; font-size: 15px; background-color: #8B5A2B; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        @media print { .no-print { display: none; } body { padding: 0; } .corpo { border: none; background: transparent; } }
+    </style>
+</head>
+<body>
+    <div class="intestazione">
+        <div class="titolo">Appunti - SPsoft</div>
+        <button class="btn-stampa no-print" onclick="window.print()">🖨️ Stampa / Salva in PDF</button>
+    </div>
+    <div class="corpo">[24/09/2026 07:05]
+prova nuova nota prova nuova nota prova nuova nota prova nuova nota prova nuova nota prova nuova nota prova nuova nota prova nuova nota prova nuova nota prova nuova nota prova nuova nota prova nuova nota prova nuova nota prova nuova nota</div>
+</body>
+</html>
