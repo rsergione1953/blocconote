@@ -29,6 +29,7 @@ jobs:
       - name: Configura Flutter SDK
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.44.8'
           channel: 'stable'
 
       - name: Installa dipendenze
@@ -38,7 +39,7 @@ jobs:
 
       - name: Compila APK con Flet
         run: |
-          flet build apk
+          flet build apk --yes
 
       - name: Carica l'APK tra gli Artefatti
         uses: actions/upload-artifact@v4
