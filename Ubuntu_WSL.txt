@@ -1,0 +1,6 @@
+# Apri Ubuntu (WSL)
+cd /mnt/c/Users/rserg/Desktop/BloccoNote
+python3 -m venv venv_linux
+source venv_linux/bin/activate
+pip install flet
+flet build apk

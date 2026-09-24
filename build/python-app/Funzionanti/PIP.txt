@@ -1,0 +1,19 @@
+# --- Framework Grafico ---
+flet==0.26.0
+
+# --- Riconoscimento Vocale e Audio ---
+SpeechRecognition==3.14.1
+standard-aifc==3.13.0
+PyAudio==0.2.14
+
+# --- Parser Date e Avvisi ---
+dateparser==1.2.0
+
+# --- Suoni e Notifiche ---
+pygame-ce==2.5.2
+plyer==2.1.0
+
+# --- Sincronizzazione e Web ---
+requests==2.32.3
+
+Pillow==10.4.0
